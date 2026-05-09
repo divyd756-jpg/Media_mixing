@@ -1,0 +1,7 @@
+streamlit
+moviepy
+pydub
+numpy
+imageio
+imageio-ffmpeg
+ffmpeg-python
