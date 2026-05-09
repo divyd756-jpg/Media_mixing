@@ -1,5 +1,5 @@
 import streamlit as st
-from moviepy.editor import VideoFileClip, AudioFileClip
+import moviepy as mp
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import numpy as np
