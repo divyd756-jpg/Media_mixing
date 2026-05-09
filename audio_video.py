@@ -3,89 +3,31 @@ from moviepy.editor import VideoFileClip, AudioFileClip
 from pydub import AudioSegment
 from pydub.silence import split_on_silence
 import numpy as np
-import tempfile
 import os
 
 st.set_page_config(page_title="Media Studio", layout="wide")
 
-st.title("🎬 Media Mixing & Audio Engineering Studio")
+st.title(" Media Mixing & Audio Engineering Studio")
 
-# -----------------------------
-# Upload Section
-# -----------------------------
-
-video_file = st.file_uploader(
-    "Upload Video",
-    type=["mp4", "mov", "avi"]
-)
-
-audio_file = st.file_uploader(
-    "Upload Audio",
-    type=["mp3", "wav"]
-)
-
-music_file = st.file_uploader(
-    "Upload Background Music",
-    type=["mp3", "wav"]
-)
-
-# -----------------------------
-# Helper Functions
-# -----------------------------
-
-def save_uploaded_file(uploaded_file):
-    temp_dir = tempfile.mkdtemp()
-    file_path = os.path.join(temp_dir, uploaded_file.name)
-
-    with open(file_path, "wb") as f:
-        f.write(uploaded_file.getbuffer())
-
-    return file_path
-
-
-# -----------------------------
-# Replace Audio
-# -----------------------------
+VIDEO_PATH = "10sec.mp4"
+AUDIO_PATH = "ADSS.mp3"
 
 def replace_audio(video_path, audio_path, output):
 
     video = VideoFileClip(video_path)
     audio = AudioFileClip(audio_path)
 
-    # Sync duration
+    # Sync audio duration
     if audio.duration > video.duration:
         audio = audio.subclip(0, video.duration)
 
     final = video.set_audio(audio)
 
-    final.write_videofile(output, codec="libx264", audio_codec="aac")
-
-
-# -----------------------------
-# Add Background Music
-# -----------------------------
-
-def add_background_music(video_path, music_path, output, volume=0.3):
-
-    video = VideoFileClip(video_path)
-    music = AudioFileClip(music_path).volumex(volume)
-
-    final_audio = video.audio.volumex(1.0)
-
-    mixed_audio = final_audio.audio_fadein(1)
-
-    mixed_audio = mixed_audio.set_duration(video.duration)
-
-    final_audio = mixed_audio
-
-    final = video.set_audio(final_audio)
-
-    final.write_videofile(output, codec="libx264", audio_codec="aac")
-
-
-# -----------------------------
-# Multi Track Mixer
-# -----------------------------
+    final.write_videofile(
+        output,
+        codec="libx264",
+        audio_codec="aac"
+    )
 
 def mix_tracks(file1, file2, output):
 
@@ -96,28 +38,13 @@ def mix_tracks(file1, file2, output):
 
     combined.export(output, format="mp3")
 
-
-# -----------------------------
-# Volume Adjust
-# -----------------------------
-
 def adjust_volume(audio_seg, db_change):
 
     return audio_seg + db_change
 
-
-# -----------------------------
-# Timing Offset
-# -----------------------------
-
 def overlay_with_offset(base, overlay, delay_ms=2000):
 
     return base.overlay(overlay, position=delay_ms)
-
-
-# -----------------------------
-# Silence Removal
-# -----------------------------
 
 def remove_silence(audio):
 
@@ -134,95 +61,77 @@ def remove_silence(audio):
 
     return combined
 
-
-# -----------------------------
-# Noise Reduction
-# -----------------------------
-
 def reduce_noise(audio_seg, threshold=500):
 
     samples = np.array(audio_seg.get_array_of_samples())
 
-    filtered = np.where(np.abs(samples) < threshold, 0, samples)
+    filtered = np.where(
+        np.abs(samples) < threshold,
+        0,
+        samples
+    )
 
-    new_audio = audio_seg._spawn(filtered.astype(np.int16).tobytes())
+    new_audio = audio_seg._spawn(
+        filtered.astype(np.int16).tobytes()
+    )
 
     return new_audio
 
+st.subheader(" Replace Video Audio")
 
-# -----------------------------
-# UI Buttons
-# -----------------------------
+if st.button("Replace Audio"):
 
-if video_file and audio_file:
+    output_video = "output_replace.mp4"
 
-    video_path = save_uploaded_file(video_file)
-    audio_path = save_uploaded_file(audio_file)
+    replace_audio(
+        VIDEO_PATH,
+        AUDIO_PATH,
+        output_video
+    )
 
-    if st.button("🎵 Replace Video Audio"):
+    st.success(" Audio replaced successfully!")
 
-        output = "output_replace.mp4"
+    st.video(output_video)
 
-        replace_audio(video_path, audio_path, output)
+    with open(output_video, "rb") as f:
+        st.download_button(
+            "⬇ Download Video",
+            f,
+            file_name="final_video.mp4"
+        )
 
-        st.success("Audio Replaced Successfully!")
+st.subheader(" Noise Reduction")
 
-        st.video(output)
+if st.button("Clean Audio"):
 
-        with open(output, "rb") as f:
-            st.download_button(
-                "Download Video",
-                f,
-                file_name="replaced_audio_video.mp4"
-            )
+    sound = AudioSegment.from_file(AUDIO_PATH)
 
+    cleaned = remove_silence(sound)
 
-if audio_file and music_file:
+    cleaned = reduce_noise(cleaned)
 
-    audio_path = save_uploaded_file(audio_file)
-    music_path = save_uploaded_file(music_file)
+    output_audio = "cleaned_audio.wav"
 
-    if st.button("🎧 Mix Audio Tracks"):
+    cleaned.export(output_audio, format="wav")
 
-        output = "mixed_audio.mp3"
+    st.success("Audio cleaned successfully!")
 
-        mix_tracks(audio_path, music_path, output)
+    st.audio(output_audio)
 
-        st.success("Audio Mixed Successfully!")
+    with open(output_audio, "rb") as f:
+        st.download_button(
+            " Download Cleaned Audio",
+            f,
+            file_name="cleaned_audio.wav"
+        )
+        
+st.subheader(" Current Media Files")
 
-        st.audio(output)
+st.write(f"Video File: {VIDEO_PATH}")
+st.write(f"Audio File: {AUDIO_PATH}")
 
-        with open(output, "rb") as f:
-            st.download_button(
-                "Download Mixed Audio",
-                f,
-                file_name="mixed_audio.mp3"
-            )
+if os.path.exists(VIDEO_PATH):
+    st.success(" Video file found")
 
-
-if audio_file:
-
-    audio_path = save_uploaded_file(audio_file)
-
-    if st.button("🔇 Remove Silence + Reduce Noise"):
-
-        sound = AudioSegment.from_file(audio_path)
-
-        cleaned = remove_silence(sound)
-
-        cleaned = reduce_noise(cleaned)
-
-        output = "cleaned_audio.wav"
-
-        cleaned.export(output, format="wav")
-
-        st.success("Noise Reduction Complete!")
-
-        st.audio(output)
-
-        with open(output, "rb") as f:
-            st.download_button(
-                "Download Cleaned Audio",
-                f,
-                file_name="cleaned_audio.wav"
-            )
+if os.path.exists(AUDIO_PATH):
+    st.success(" Audio file found")
